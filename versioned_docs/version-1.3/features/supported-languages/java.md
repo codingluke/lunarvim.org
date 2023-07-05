@@ -9,6 +9,7 @@
 ## Supported language servers
 
 - jdtls
+- nvim-jdtls
 
 ## Supported formatters
 
@@ -54,6 +55,82 @@ More information about Lsp commands can be found at https://github.com/tamago324
 ### Custom formatters
 
 Custom formatters are CLI tools that are wrapped with null-ls plugin, which is available by default in LunarVim. They should be installed separately from LunarVim and be available on $PATH.
+
+### nvim-jdtls
+
+`nvim-jdtls` is an alternative setup of the jdtls lsp, which is even promotet by [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/0011c435282f043a018e23393cae06ed926c3f4a/lua/lspconfig/server_configurations/jdtls.lua#L132) itself.
+
+Here a sample nvim-jdtls/mason configuration:
+
+- Export a $MASON env-var to your .bashrc like `export MASON=$HOME/.local/share/nvim/mason/`.
+
+```lua title="config.lua"
+-- disable autoconfiguration
+vim.list_extend(lvim.lsp.automatic_configuration.skipped_servers, { "jdtls" })
+
+--- install the plugin
+lvim.plugins = {
+  { 'mfussenegger/nvim-jdtls' },
+}
+```
+
+```lua title="ftplugin/java.lua"
+local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
+-- ❗set your global workspace folder
+local workspace_dir = vim.fn.expand("$HOME/change/me/to/wherever") .. project_name
+
+-- See `:help vim.lsp.start_client` for an overview of the supported `config` options.
+local config = {
+  -- The command that starts the language server
+  -- See: https://github.com/eclipse/eclipse.jdt.ls#running-from-the-command-line
+  cmd = {
+    'java',
+    '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+    '-Dosgi.bundles.defaultStartLevel=4',
+    '-Declipse.product=org.eclipse.jdt.ls.core.product',
+    '-Dlog.protocol=true',
+    '-Dlog.level=ALL',
+    '-Xmx1g',
+    '--add-modules=ALL-SYSTEM',
+    '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+    '-javaagent:' .. vim.fn.expand("$MASON/share/jdtls/lombok.jar"), -- LOMBOK ❤️
+    '-jar', vim.fn.expand("$MASON/share/jdtls/plugins/org.eclipse.equinox.launcher.jar"),
+    '-configuration', vim.fn.expand("$MASON/share/jdtls/config"),
+    '-data', workspace_dir
+  },
+
+  -- ❗add all the lunarvim mappings! very important
+  on_attach = require("lvim.lsp").common_on_attach,
+  on_init = require("lvim.lsp").common_on_init,
+  on_exit = require("lvim.lsp").common_on_exit,
+  capabilities = require("lvim.lsp").common_capabilities(),
+  root_dir = require('jdtls.setup').find_root({ '.git', 'mvnw', 'gradlew' }),
+
+  -- Here you can configure eclipse.jdt.ls specific settings
+  -- See https://github.com/eclipse/eclipse.jdt.ls/wiki/Running-the-JAVA-LS-server-from-the-command-line#initialize-request
+  -- for a list of options
+  settings = {
+    java = {
+    }
+  },
+
+  -- Language server `initializationOptions`
+  -- You need to extend the `bundles` with paths to jar files
+  -- if you want to use additional eclipse.jdt.ls plugins.
+  --
+  -- See https://github.com/mfussenegger/nvim-jdtls#java-debug-installation
+  --
+  -- If you don't plan on using the debugger or other eclipse.jdt.ls plugins you can remove this
+  init_options = {
+    bundles = {
+    }
+  },
+}
+-- This starts a new client & server,
+-- or attaches to an existing client & server depending on the `root_dir`.
+require('jdtls').start_or_attach(config)
+```
 
 #### clang-format
 
